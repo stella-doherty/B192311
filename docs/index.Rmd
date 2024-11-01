@@ -1,6 +1,6 @@
 ---
 title: "Assessment"
-author: "Stella"
+author: "Stella Doherty"
 date: "2024-11-01"
 output: html_document
 ---
