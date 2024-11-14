@@ -2,11 +2,17 @@
 title: "Assessment"
 author: "Stella Doherty"
 date: "2024-11-01"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warnings = FALSE)
 ```
+
+#### Link to website: 
+
+[My Github website](https://stella-doherty.github.io/B192311/)
 
 # Topic (focus)
 
