@@ -4,29 +4,118 @@ author: "Stella Doherty"
 date: "2024-11-01"
 output: html_document
 ---
-
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warnings = FALSE)
 ```
 
-## R Markdown
+# Topic (focus)
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+Trends in prescriptions of SSRI antidepressants within different areas of Scotland pre-covid (july 2019) versus peak-covid (july 2020).  
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+* I am interested to see if there is certain regions in Scotland, such as places further North, that prescribe more antidepressants and it is interesting to see if covid had an impact on this.
 
-```{r cars}
-summary(cars)
+#### load packages
+```{r}
+library(tidyverse)
+library(janitor)
+library(gt)
+library(here) 
 ```
 
-## Including Plots
+#### Load data sets January - December 2019 
+```{r}
+data_jul2019 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/6e3856e9-88cb-495a-8c8a-54b0460df950/download/pitc201907.csv") %>% 
+  clean_names()
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+data_jul2020 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/80b6ddb1-f09b-4d76-9927-da1e118b01ff/download/pitc202007.csv") %>% 
+  clean_names()
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+#### Filter July data sets. Select for SSRI antidepresants: Fluoxetine, citalopram, escitalopram, paroxetine, sertraline. Join both. 
+```{r}
+ssri_data_jul2019 <- data_jul2019 %>% 
+  filter(!is.na(bnf_item_description), str_detect(bnf_item_description, "FLUOXETINE|CITALOPRAM|ESCAITALOPRAM|PAROXETINE|SERTRALINE")) %>% 
+  select(hbt2014, bnf_item_description, paid_quantity, paid_date_month) %>% 
+  rename(hbt = "hbt2014")
 
-# Check 123 
+ssri_data_jul2020 <- data_jul2020 %>% 
+  filter(!is.na(bnf_item_description), str_detect(bnf_item_description, "FLUOXETINE|CITALOPRAM|ESCAITALOPRAM|PAROXETINE|SERTRALINE")) %>% 
+  select(hbt, bnf_item_description, paid_quantity, paid_date_month)
+
+joined_jul_data <- full_join(ssri_data_jul2019, ssri_data_jul2020) %>% 
+  mutate(paid_date_month = ym(paid_date_month),
+         year = year(paid_date_month))
+```
+
+#### Health board data and general census data. Joined. 
+```{r warning=FALSE}
+health_boards <- read_csv("https://www.opendata.nhs.scot/dataset/9f942fdb-e59e-44f5-b534-d6e17229cc7b/resource/652ff726-e676-4a20-abda-435b98dd7bdc/download/hb14_hb19.csv")
+
+hb_general_health <- read_csv(here("data", "UV302_general_health.csv"), skip = 10) %>% 
+  clean_names() %>% # remove the first row (with extraneous information)
+  select(-x5) %>%  # remove the final (unnecessary) column
+  rename(HBName = "health_board_area_2019",
+         hb_population = count) %>% 
+  # filter the data so that we get the population of the entire health board
+  filter(general_health == "All people") %>% 
+  # select only the relevant columns
+  select(HBName, hb_population) %>% 
+  # change health board names so they match the prescription data
+  mutate(HBName = paste("NHS", HBName))
+
+joined_hb_data <- health_boards %>% 
+  full_join(hb_general_health, by = "HBName") %>% 
+  select(HB, HBName, hb_population) %>% 
+  rename(hbt = "HB")
+```
+
+#### Join HB data and July data sets
+```{r}
+joined_hb_jul_data <- full_join(joined_hb_data, joined_jul_data) %>% 
+  na.omit()
+```
+
+#### Obtain sum of each type of SSRI antidepressant 
+```{r}
+quantity_sum_jul_data <- joined_hb_jul_data %>% 
+  group_by(year, bnf_item_description, HBName) %>% 
+  summarise(quantity_sum = sum(paid_quantity)) 
+
+wide_jul_data <- quantity_sum_jul_data %>% 
+  pivot_wider(names_from = bnf_item_description, values_from = quantity_sum)
+
+ssri_sums <- wide_jul_data %>% 
+  ungroup() %>%
+  mutate(Citalopram = rowSums(select(., starts_with("CITALOPRAM")), na.rm = TRUE),
+         Escaitalopram = rowSums(select(., starts_with("ESCITALOPRAM")), na.rm = TRUE),
+         Fluoxetine = rowSums(select(., starts_with("FLUOXETINE")), na.rm = TRUE), 
+         Paroxetine = rowSums(select(., starts_with("PAROXETINE")), na.rm = TRUE), 
+         Sertraline = rowSums(select(., starts_with("SERTRALINE")), na.rm = TRUE)) 
+
+long_ssri_sums <- ssri_sums %>% 
+  select(HBName, year, Citalopram, Escaitalopram, Fluoxetine, Paroxetine, Sertraline) %>% 
+  pivot_longer(cols = Citalopram:Sertraline, names_to = "ssri", values_to = "sum") 
+```
+
+#### Example: distribution in NHS Lothian and NHS Greater Glasgow and Clyde in both years in July 
+```{r}
+long_ssri_sums %>% 
+  filter(HBName %in% c("NHS Lothian", "NHS Greater Glasgow and Clyde")) %>% 
+  group_by(year, HBName) %>% 
+  gt() %>% 
+  cols_label(HBName = "Health Board",
+             year = "July Year",
+             ssri = "SSRI antidepressant",
+             sum = "Total prescriptions of SSRI antidepressant") %>% 
+  cols_align(align = "center",
+             columns = c("sum", "year")) %>% 
+  fmt_number(columns = sum, decimals = 0) %>% 
+  summary_rows(columns = sum,
+               fns = list("Total" = ~sum(., na.rm = TRUE))) %>% 
+  tab_header(title = "SSRI antidepressant prescriptions comparing pre-covid (July 2019) and peak-covid (July 2020)",
+             subtitle = "Data from NHS Lothian and NHS Greater Glasgow and Clyde")
+```
+
+#### Next steps: 
+* plot a graph to show the comparison between the 2 years for each SSRI
+* Map distribution of SSRI across the NHC health boards - one for each year 
