@@ -1,6 +1,6 @@
 ---
-title: "Assessment"
-author: "Stella Doherty"
+title: "R Programming Assessment"
+author: "B192311"
 date: "2024-11-01"
 output:
   html_document: 
@@ -19,7 +19,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warnings = FALSE)
 
 This research will focus on prescribing patterns of SSRI antidepressants in different Health Boards across various Health Boards in Scotland pre-COVID (December 2019) versus peak-COVID (December 2020). Focus will be on the trends of prescriptions over the two years and whether different regions in Scotland have higher dependencies on SSRI antidepressants. I am interested in this research from a societal and personal aspect. Since the pandemic was very sudden and an unfamiliar occurrence which quickly altered peoples lives, I am curious how it affected peoples well-being. Also being from Scotland myself, I am interested in understanding the difference location makes for prescriptions like antidepressants. I decided to choose the month of December since the COVID-19 pandemic had been ongoing for a few months before December 2019 so it gives a better perspective as to the growing psychological effect the pandemic was having across the Scottish population. 
 
-## Data Wrangling - Prescriptions from December 2019 and 2020
+# Data Wrangling - Prescriptions from December 2019 and 2020
 
 **Load** in required packages:
 
@@ -30,7 +30,6 @@ library(gt) # create tables
 library(here) # locate files
 library(sf) # work with spatial vector data
 library(lubridate) # manipulate dates
-library(scales)
 ```
 
 **Read** in prescription data sets:
@@ -88,11 +87,11 @@ ssri_all_prescriptions_table%>%
              columns = paid_date_month)
 ```
 
-### Table results
+## Table results
 
 **Table of top 5 SSRI prescriptions:** This table ranks SSRIs first, according to most prescribed SSRI prescriptions, then by the year in which had the most of the prescribed SSRI. It shows that shows that for each of prescription shown, December 2020 consistently had a greater number of prescriptions compared to December 2019. From this initial look into the differences pre-COVID versus peak-COVID it suggests that the pandemic is likely affecting the mentaland psycholgoical well-being of the Scottish population.
 
-## Data Wrangling - Prescriptions from December 2019 and 2020 combined with Scottish Health Board and population data
+# Data Wrangling - Prescriptions from December 2019 and 2020 combined with Scottish Health Board and population data
 
 **Load and join data:**
 
@@ -110,7 +109,7 @@ ssri_all_prescriptions_table%>%
   + Select 2022 then 'Search data by topic'    
   + Select 'Health, Disability and unpaid care' 
   + Select 'General Health UV302'   
-  + Select 'Data Zone 2011'   
+  + Select 'Health Board Area 2019'   
   + Select 'Select all'
 
 ```{r Load Health Board and general census data. Join with SSRI data.}
@@ -176,7 +175,7 @@ ssri_per_1k <- longer_ssri_sums_total %>%
   select(-sum, -hb_population)
 ```
 
-## Data presentation - Graph and Map
+# Data presentation - Graph and Map
 
 Present a **graph** of SSRI prescriptions comparing numbers prescribed per 1k in December 2019 vs 2020, including all Scottish health boards:
 
@@ -195,7 +194,7 @@ ssri_per_1k %>%
   theme_bw() 
 ```
 
-### Graph results     
+## Graph results     
 
 This graph presents the number of each SSRI prescriptions per 1,000 people from December 2019 and December 2020, with a separate view of each Health Board in Scotland. In every Health Board the number of prescriptions have increased from 2019 to 2020 with similar patterns observed between the two years for each health board. This further builds on the negative effect of the pandemic and likely has a similar effect on all areas across Scotland in regards to peoples mental and psychological well-being. This consistency of increased prescriptions across all areas of Scotland shows the national impact of the pandemic and suggests that the population is similarly being challenged by isolation, stress and unknown future outcomes of the disease. 
 
@@ -243,7 +242,7 @@ ssri_map <- total_map_sums %>%
 ssri_map
 ```
 
-### Map results
+## Map results
 
 This map displays the distributions in SSRI prescriptions per 1,000 people across different Health Boards in Scotland with two separate maps for December 2019 and 2020. The darker areas represent higher prescription rate, while the lighter pinks describe lower prescription rates. From this scale, we can see that the darkest area is in the south region, such as NHS Dumfries and Galloway. In this Health Board, the colour is much darker in 2020 compared to 2019, suggesting that this area continued to struggle with mental and psycholgical conditions following the COVID-19 pandemic. Although number of prescription appear quite similar across other regions, such as the north and NHS Lothian, suggesting this population of people likely experience less mental suffering than other regions of Scotland. With the NHS Lothian area being a major city, Edinburgh, this may impact the access to treatment and mental health help that these residents experience. As this is the capital city of Scotland, resources for those living there may be more abundant and easily accessible that those living in the more rural regions, for example. Additionally, another region which stands out is NHS Highland in the south showing a lower distribution of SSRI prescriptions compared to other Health Boards which similarly suggests this population of people have greater metal well-beings, which likely comes from a strong community and support network there. Overall, difference in colours between 2019 and 2020 are not drastic but there are some areas which appear darker over the year suggesting there is a difference between pre and peak-COVID prescriptions of SSRI prescriptions.  
 
@@ -259,6 +258,6 @@ While the trends in the data showed notable differences between SSRI prescriptio
 
 AI was used to troubleshoot some error messages and to identify the issue. When choosing colours for the graph AI was used to help understand what each colour theme presented and to suggest which colour theme was most suitable for presenting the data.
 
-### References
+## References
 
 National Health Service (2021) *Overview - Selective serotonin reuptake inhibitors (SSRIs)*. Available at: https://www.nhs.uk/mental-health/talking-therapies-medicine-treatments/medicines-and-psychiatry/ssri-antidepressants/overview/ (Accessed: 24/11/2024).
