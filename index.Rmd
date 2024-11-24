@@ -1,0 +1,218 @@
+---
+title: "Assessment"
+author: "Stella Doherty"
+date: "2024-11-01"
+output:
+  html_document: default
+  pdf_document: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warnings = FALSE)
+```
+
+# Introduction 
+**Research question:** Did the COVID-19 pandemic influence prescriptions of SSRI antidepressants around Scotland?
+
+This research will focus on prescriptions of SSRI antidepressants in different Health Boards across Scotland pre-COVID December 2019) versus peak-COVID (December 2020). Focus will be on the trends of prescriptions over the two years and whether different regions in Scotland have higher dependencies on SSRI antidepressants. I am interested in this research because since the pandemic was very sudden and an unusual occurrence I am curious how it affected peoples well-being and also being from Scotland myself, the difference in affected areas also interests me. I decided to choose the month of December since the COVID-19 pandemic had been ongoing for a few months before December 2019 so it gives a better perspective as to the growing effect the pandemic was having. 
+
+## Data Wrangling - Prescriptions from December 2019 and 2020
+**Load** in required packages:
+
+```{r Load in required packages}
+library(tidyverse) 
+library(janitor) # examine and clean data
+library(gt) # create tables
+library(here) # locate files
+library(sf) # work with spatial vector data
+library(lubridate) # manipulate dates
+```
+
+**Read** in prescription data sets:
+* Data sets were obtained from opendata.nhs.scot and downloaded in csv format. 
+* [Data by Prescriber Loaction - December 2020](https://www.opendata.nhs.scot/dataset/prescriptions-in-the-community/resource/0c033702-4d88-4f2d-989c-a709b1f4529e)
+* [Data by Prescriber Location - December 2019](https://www.opendata.nhs.scot/dataset/prescriptions-in-the-community/resource/fa276ad2-669a-472f-9c47-809f199fae21)
+
+```{r Read in data sets}
+data_dec2019 <- read_csv(here("data", "opendata_prescriptions_dec2019.csv")) %>% 
+  clean_names() # cleans variable names
+
+data_dec2020 <- read_csv(here("data", "opendata_prescriptions_dec2020.csv")) %>% 
+  clean_names()
+```
+
+**Display** initial findings:
+1. **Join** both prescription data sets together
+2. **Filter** for SSRI depressant precriptions: Fluoxetine, Citalopram, Escaitalopram, Parroxetine, Sertraline
+3. Create a **table** presenting the top 5 most prescribed SSRIs 
+
+```{r Join prescription data sets. Filter for SSRI antidepressants. Present top5 most prescribed in a table.}
+all_prescriptions <- data_dec2019 %>% 
+  rename(hbt = "hbt2014") %>% # ensures both health board variables have the same name for joining
+  full_join(data_dec2020) # full join to retain all data 
+
+ssri_all_prescriptions <- all_prescriptions %>% 
+  filter(!is.na(bnf_item_description), str_detect(bnf_item_description, "FLUOXETINE|CITALOPRAM|ESCAITALOPRAM|PAROXETINE|SERTRALINE")) %>% # removes rows where no item description is present and filters for SSRIs 
+  select(hbt, bnf_item_description, number_of_paid_items, paid_date_month)
+
+  
+ssri_all_prescriptions_table <- ssri_all_prescriptions %>% 
+  mutate(paid_date_month = as.Date(paste0(paid_date_month, "01"), format = "%Y%m%d")) %>% # ensures the date is the the form year-month-day instead of a number
+  group_by(bnf_item_description, paid_date_month) %>% 
+  summarise(quantity_sum = sum(number_of_paid_items)) %>% # create total number of prescriptions for all health boards
+  arrange(-quantity_sum) %>% 
+  head(n = 10) 
+
+ssri_all_prescriptions_table%>% 
+  gt(groupname_col = "bnf_item_description",
+     row_group_as_column = TRUE) %>% # groups by SSRI prescription and put into a column
+  cols_label(quantity_sum = "Total prescriptions",
+             paid_date_month = "Year") %>% 
+  tab_stubhead(label = "SSRI prescription") %>% 
+  tab_header(title = md("**Top 5 SSRI prescriptions**"),
+             subtitle = md("December 2019 *vs* December 2020 across the whole of Scotland")) %>% 
+  fmt_date(columns = paid_date_month,
+           date_style = "yMMM") %>% 
+  cols_align(align = "center",
+             columns = paid_date_month)
+```
+
+### Table results
+**Table of top 5 SSRI prescription:** This table is ordered first, according to most prescribed SSRI prescriptions, then, by which year had the most of the prescribed SSRI. It shows that shows that for each prescription, December 2020 always had a greater number of prescriptions compared to December 2019. From this initial look into the differences pre-COVID versus peak-COVID it suggests that the pandemic is likely affecting the mental wellbeing of the Scottish population.
+
+## Data Wrangling - Prescriptions from December 2019 and 2020 combined with Scottish Health Board and population data
+
+**Load and join data:**
+1. Load in Scottish NHS health boards and general census data - join together
+2. Join with SSRI prescription data
+
+* [Health Board 2014 - Health Board 2019 data](https://www.opendata.nhs.scot/dataset/geography-codes-and-labels/resource/652ff726-e676-4a20-abda-435b98dd7bdc)
+* [General Health data: Data Zone by 2011 by General Health](https://www.scotlandscensus.gov.uk/webapi/jsf/tableView/tableView.xhtml)
+
+```{r Load Health Board and general census data. Join with SSRI data.}
+health_boards <- read_csv("https://www.opendata.nhs.scot/dataset/9f942fdb-e59e-44f5-b534-d6e17229cc7b/resource/652ff726-e676-4a20-abda-435b98dd7bdc/download/hb14_hb19.csv") %>% 
+  clean_names()
+
+hb_general_health <- read_csv(here("data", "UV302_general_health.csv"), skip = 10) %>% 
+  clean_names() %>% # remove the first row (with extraneous information)
+  select(-x5) %>%  # remove the final (unnecessary) column
+  rename(hb_name = "health_board_area_2019",
+         hb_population = count) %>% 
+  filter(general_health == "All people") %>% # filter the data so that we get the population of the entire health board
+  select(hb_name, hb_population) %>% 
+  mutate(hb_name = paste("NHS", hb_name)) # change health board names so they match the prescription data
+
+joined_hb_data <- health_boards %>% 
+  left_join(hb_general_health, by = "hb_name") %>% # left join to only add matching data from general health census to health board data
+  select(hb, hb_name, hb_population) %>% 
+  rename(hbt = "hb")
+
+hb_ssri_all_prescrirptions <- ssri_all_prescriptions %>% 
+  left_join(joined_hb_data, by = "hbt") %>% # left join to only add matching data from the new joined health board data to the existing SSRI prescription data 
+  na.omit() %>% # ignores any NA values 
+  select(-hbt)
+```
+
+**Calculate sum of SSRIs and prescriptions per 1k people:**
+1. Obtain the sum of each of the 5 SSRI prescription types (e.g. all Fluoxetine prescriptions)
+2. Obtain sum of number of prescriptions of each SSRI per 1k
+
+```{r Obtain sum of SSRI precription types.}
+ssri_sums_item <- hb_ssri_all_prescrirptions %>%
+  group_by(paid_date_month, hb_name, bnf_item_description) %>% 
+  summarise(quantity_sum = sum(number_of_paid_items))
+
+wider_ssri_sums <- ssri_sums_item %>% 
+  pivot_wider(names_from = bnf_item_description, values_from = quantity_sum)
+
+ssri_sums_total <- wider_ssri_sums %>% 
+  ungroup() %>%
+  mutate(Citalopram = rowSums(select(., starts_with("CITALOPRAM")), na.rm = TRUE),
+         Escaitalopram = rowSums(select(., starts_with("ESCITALOPRAM")), na.rm = TRUE),
+         Fluoxetine = rowSums(select(., starts_with("FLUOXETINE")), na.rm = TRUE), 
+         Paroxetine = rowSums(select(., starts_with("PAROXETINE")), na.rm = TRUE), 
+         Sertraline = rowSums(select(., starts_with("SERTRALINE")), na.rm = TRUE)) 
+
+longer_ssri_sums_total <- ssri_sums_total %>% 
+  select(hb_name, paid_date_month, Citalopram, Escaitalopram, Fluoxetine, Paroxetine, Sertraline) %>% 
+  pivot_longer(cols = Citalopram:Sertraline, names_to = "ssri", values_to = "sum") 
+
+# Calculate total sum of SSRI prescriptions per 1000 people 
+ssri_per_1k <- longer_ssri_sums_total %>% 
+  left_join(hb_general_health) %>% 
+  mutate(ssri_per_1k = (sum/hb_population)*1000,
+         paid_date_month = ym(paid_date_month), 
+         paid_date_month = year(paid_date_month))%>% 
+  select(-sum, -hb_population)
+```
+
+## Data presentation - Graph and Map
+
+Present a **graph** of SSRI prescriptions comparing numbers prescribed per 1k in December 2019 vs 2020, including all Scottish health boards:
+
+```{r Graph presenting SSRI prescription 2019 vs 2020 inclduing Scotland Health Boards}
+ssri_per_1k %>% 
+  ggplot(aes(x = reorder(factor(paid_date_month), ssri_per_1k), 
+              y = ssri_per_1k, fill = ssri)) +
+  geom_bar(stat = "identity", position = "stack")+
+  facet_wrap(~hb_name)+
+  coord_flip()+ # Flip the axes of the plot
+  labs(title = "Difference in SSRI prescriptions per 1k people in December 2019 vs 2020",
+       subtitle = "By NHS Health Boards in Scotland",
+       x = "Year (Month of December)",
+       y = "SSRI prescriptions per 1k")+
+  scale_fill_brewer(palette = "Accent")+
+  theme_bw() 
+```
+
+### Graph results     
+This graph presents the number of prescriptions per 1k of each SSRI from December 2019 to 2020 with a separate view of each Health Board in Scotland. In every Health Board the number of prescriptions have increased from 2019 to 2020 with similar looking differences between the two years for each health board. This further suggests that the pandemic may have had a similar effect on all areas across Scotland in regards to peoples mental well being. 
+
+**Mapping:**
+
+Load in geospatial data:
+* [NHS Health Boards - Scotland. Geospatial data](https://www.spatialdata.gov.scot/geonetwork/srv/eng/catalog.search#/metadata/f12c3826-4b4b-40e6-bf4f-77b9ed01dc14)
+
+```{r Load in geospatial data}
+hb_geo_data <- st_read(here("data" ,"SG_NHS_HealthBoards_2019")) %>% 
+  clean_names() %>% 
+  mutate(hb_name = paste("NHS ", hb_name, sep = ""))
+```
+
+Join geospatial data with SSRI prescriptions per 1000 people:
+
+```{r Join geospatial data}
+joined_geo_sums <- full_join(ssri_per_1k, hb_geo_data, by = "hb_name") 
+
+joined_geo_sums <- st_as_sf(joined_geo_sums) # ensure joined data set is in the form sf for geosptial plotting
+```
+
+Present map of SSRI prescription data across NHS Health Boards Scotland:
+
+```{r Mapping}
+ssri_map <- joined_geo_sums %>% 
+  ggplot(aes(fill = ssri_per_1k))+
+  geom_sf(colour = "white", linewidth = 0.2)+
+  scale_fill_distiller(palette = "PuRd", direction = 1) +
+  theme_void()+
+  labs(title = "Distribution of SSRIs per 1,000 across Scottish NHS Health Boards",
+       subtitle = "Prescriptions from December 2019 and 2020",
+       fill = "No.of prescriptions")+
+  theme(plot.title = element_text(face = "bold", size = 10), 
+        plot.subtitle = element_text(size = 9), 
+        legend.title = element_text(face = "bold", size = 9))+
+  facet_wrap(~factor(paid_date_month))
+
+ssri_map
+```
+
+### Map results
+This map displays the difference in SSRI prescriptions per 1k across different Health Boards in Scotland with two separate maps for December 2019 and 2020. The darker areas represent higher numbers of prescriptions, while the lighter pinks describe lower numbers of prescriptions. From this scale, we can see that the darkest area is in the southern region which is NHS Dumfries and Gallaway. In this Health Board, the colour is much darker in 2020 compared to 2019, suggesting that this area may have been more negatively affected by the COVID-19 pandemic. Although number of prescription appear quite similar across other regions, the east of Scotland appears slightly lighter than the west, especially NHS Lothian, suggesting this population of people are less reliant on SSRIs and overall happier than other regions of Scotland. Another region which stands out is NHS Western Isles in the north west showing a lower distribution of SSRI prescriptions compared to other Health Boards which similarly suggests this population of people are happier. Overall, difference in colours between 2019 and 2020 are not drastic but there are some areas which appear darker over the year suggesting there is a difference between pre and peak-COVID prescriptions of SSRI prescriptions.  
+
+# Conclusions
+In conclusion the presentation of data that shows the differences in SSRI prescriptions across December 2019 and 2020 as well as across the NHS Health Boards in Scotland suggests that the increase in prescriptions could be due to the COVID-19 pandemic experienced in 2020. As well as differences across the two years, there is also differences in SSRI prescriptions across Scotland. While some areas in the South and West showed higher prescriptions per 1k, areas in the East and the Western Isles had less prescriptions. This demonstrates that certain in areas in Scotland may be more pleasant to live in than others.
+
+**Limitations and next steps:**
+Although the trends in the data showed differences between SSRI prescriptions across the two year pre- and peak-COVID, many other factors may play into these numbers. For example, the trend of SSRI prescriptions may have been increasing before 2019 and may continue to increase after 2020. However, this is something that can be further explored to come to future conclusions about trends of SSRIs and how much the pandemic influenced this. Desptie this, the pandemic was a major global event that had a negative impact on many lives which can be reflected by these increase in antidepressants. In terms of geographical distribution of SSRIs, regions in Scotland may vary due to many factors such as green space, weather conditions and the residents that live there. It is likely that these factors can change within a year, for example a decrease in green spaces, which can influence someones mental well being and therefore SSRI prescriptions. Taking these things into consideration as well as the pandemic can help us come to better conclusions about differences in SSRI prescriptions across Scotland. 
+
+**Use of AI:**
+AI was used to troubleshoot some error messages and understand where I was going wrong. When choosing colours for the graph I also used AI to help understand what each colour them was and to suggest which colour theme would work best for the data I was trying to present.
