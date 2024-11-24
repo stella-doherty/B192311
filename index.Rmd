@@ -3,10 +3,10 @@ title: "Assessment"
 author: "Stella Doherty"
 date: "2024-11-01"
 output:
+  pdf_document: default
   html_document: 
     toc: true
     toc_depth: 2
-  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
