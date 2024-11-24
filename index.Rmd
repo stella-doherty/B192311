@@ -3,10 +3,10 @@ title: "Assessment"
 author: "Stella Doherty"
 date: "2024-11-01"
 output:
-  pdf_document: default
   html_document: 
     toc: true
     toc_depth: 2
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -222,8 +222,13 @@ joined_geo_sums <- st_as_sf(joined_geo_sums) # ensure joined data set is in the 
 Present map of SSRI prescription data across NHS Health Boards Scotland:
 
 ```{r Mapping}
-ssri_map <- joined_geo_sums %>% 
-  ggplot(aes(fill = ssri_per_1k))+
+total_map_sums <- joined_geo_sums %>% 
+  group_by(hb_name, paid_date_month, geometry) %>% 
+  summarise(total_ssri_per_1k = sum(ssri_per_1k, na.rm = TRUE)) %>% 
+  ungroup()
+
+ssri_map <- total_map_sums %>% 
+  ggplot(aes(fill = total_ssri_per_1k))+
   geom_sf(colour = "white", linewidth = 0.2)+
   scale_fill_distiller(palette = "PuRd", direction = 1) +
   theme_void()+
@@ -240,11 +245,11 @@ ssri_map
 
 ### Map results
 
-This map displays the distributions in SSRI prescriptions per 1,000 people across different Health Boards in Scotland with two separate maps for December 2019 and 2020. The darker areas represent higher prescription rate, while the lighter pinks describe lower prescription rates. From this scale, we can see that the darkest area is in the southern region which is NHS Dumfries and Galloway. In this Health Board, the colour is much darker in 2020 compared to 2019, suggesting that this area continued to struggle with mental and psycholgical conditions following the COVID-19 pandemic. Although number of prescription appear quite similar across other regions, the east of Scotland appears slightly lighter than the west, especially NHS Lothian, suggesting this population of people likely experience less mental suffering than other regions of Scotland. With this area being a major city, Edinburgh, this may impact the access to treatment and mental health help that these residents experience. As this is the capital city of Scotland, resources for those living there may be more abundant and easily accessible that those living in the more rural regions, for example. Additionally region which stands out is NHS Western Isles in the north west showing a lower distribution of SSRI prescriptions compared to other Health Boards which similarly suggests this population of people have greater metal well-beings, which likely comes from a strong community and support network there. Overall, difference in colours between 2019 and 2020 are not drastic but there are some areas which appear darker over the year suggesting there is a difference between pre and peak-COVID prescriptions of SSRI prescriptions.  
+This map displays the distributions in SSRI prescriptions per 1,000 people across different Health Boards in Scotland with two separate maps for December 2019 and 2020. The darker areas represent higher prescription rate, while the lighter pinks describe lower prescription rates. From this scale, we can see that the darkest area is in the south region, such as NHS Dumfries and Galloway. In this Health Board, the colour is much darker in 2020 compared to 2019, suggesting that this area continued to struggle with mental and psycholgical conditions following the COVID-19 pandemic. Although number of prescription appear quite similar across other regions, such as the north and NHS Lothian, suggesting this population of people likely experience less mental suffering than other regions of Scotland. With the NHS Lothian area being a major city, Edinburgh, this may impact the access to treatment and mental health help that these residents experience. As this is the capital city of Scotland, resources for those living there may be more abundant and easily accessible that those living in the more rural regions, for example. Additionally, another region which stands out is NHS Highland in the south showing a lower distribution of SSRI prescriptions compared to other Health Boards which similarly suggests this population of people have greater metal well-beings, which likely comes from a strong community and support network there. Overall, difference in colours between 2019 and 2020 are not drastic but there are some areas which appear darker over the year suggesting there is a difference between pre and peak-COVID prescriptions of SSRI prescriptions.  
 
 # Conclusions
 
-In conclusion, the data presentation showing the differences in SSRI prescriptions across December 2019 and December 2020 as well as across the NHS Health Boards in Scotland suggests that the increase in prescriptions could be linked to the COVID-19 pandemic experienced in 2020. As well as differences across the two years, there is also noticeable differences in SSRI prescriptions across various regions in Scotland, highlighting the challenge of mental health nationally. While some areas in the South and West showed higher prescriptions per 1,000 people, areas in the East and the Western Isles had less prescriptions. This demonstrates that certain in areas in Scotland may have better living conditions, access to resources or stronger community support network than others. Overall, this suggests the importance of taking mental and psychological seriously as a nation seen by the vast and increasing reliance on antidepressants especially after the strain of the pandemic. 
+In conclusion, the data presentation showing the differences in SSRI prescriptions across December 2019 and December 2020 as well as across the NHS Health Boards in Scotland suggests that the increase in prescriptions could be linked to the COVID-19 pandemic experienced in 2020. As well as differences across the two years, there is also noticeable differences in SSRI prescriptions across various regions in Scotland, highlighting the challenge of mental health nationally. While some areas in the South and West showed higher prescriptions per 1,000 people, areas in the East and the north had less prescriptions. This demonstrates that certain in areas in Scotland may have better living conditions, access to resources or stronger community support network than others. Overall, this suggests the importance of taking mental and psychological seriously as a nation seen by the vast and increasing reliance on antidepressants especially after the strain of the pandemic. 
 
 **Limitations and next steps:**
 
